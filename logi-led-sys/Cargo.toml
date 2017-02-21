@@ -1,0 +1,7 @@
+[package]
+name = "logi-led-sys"
+version = "0.1.0"
+authors = ["Henning Ottesen <henning@live.no>"]
+
+[dependencies]
+winapi = "0.2.8"
