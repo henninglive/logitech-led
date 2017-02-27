@@ -1,0 +1,79 @@
+environment:
+  global:
+    PROJECT_NAME: logi-led
+  matrix:
+    # Stable channel
+    - CHANNEL: stable
+      TARGET: x86_64-pc-windows-gnu
+      DLL_TARGET: x64
+    - CHANNEL: stable
+      TARGET: i686-pc-windows-gnu
+      DLL_TARGET: x86
+    - CHANNEL: stable
+      TARGET: x86_64-pc-windows-msvc
+      DLL_TARGET: x64
+    - CHANNEL: stable
+      TARGET: i686-pc-windows-msvc
+      DLL_TARGET: x86
+
+    # Beta channel
+    - CHANNEL: beta
+      TARGET: x86_64-pc-windows-gnu
+      DLL_TARGET: x64
+    - CHANNEL: beta
+      TARGET: i686-pc-windows-gnu
+      DLL_TARGET: x86
+    - CHANNEL: beta
+      TARGET: x86_64-pc-windows-msvc
+      DLL_TARGET: x64
+    - CHANNEL: beta
+      TARGET: i686-pc-windows-msvc
+      DLL_TARGET: x86
+
+    # Nightly channel
+    - CHANNEL: nightly
+      TARGET: x86_64-pc-windows-gnu
+      DLL_TARGET: x64
+    - CHANNEL: nightly
+      TARGET: i686-pc-windows-gnu
+      DLL_TARGET: x86
+    - CHANNEL: nightly
+      TARGET: x86_64-pc-windows-msvc
+      DLL_TARGET: x64
+    - CHANNEL: nightly
+      TARGET: i686-pc-windows-msvc
+      DLL_TARGET: x86
+
+matrix:
+  allow_failures:
+    - CHANNEL: nightly
+
+install:
+  # Install Rust
+  - curl -sSf -o rustup-init.exe https://win.rustup.rs
+  - rustup-init.exe --default-host %TARGET% --default-toolchain %CHANNEL% -y
+  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustc -Vv
+  - cargo -V
+  # Download and unzip the Logitech Gaming LED SDK
+  - mkdir lib
+  - curl -sSf -o LED_SDK.zip http://gaming.logitech.com/sdk/LED_8.87.zip
+  - 7z -oLED_SDK x LED_SDK.zip
+  - copy LED_SDK\LED\Lib\LogitechLedEnginesWrapper\%DLL_TARGET%\LogitechLedEnginesWrapper.dll lib\LogitechLed.dll
+  # Set manually point to build scipt to our .dll
+  - set APPVEYOR_BUILD_FOLDER_FS=%APPVEYOR_BUILD_FOLDER:\=/%
+  - set LOGITECH_LED_LIB_DIR=%APPVEYOR_BUILD_FOLDER_FS%/lib
+  - set LOGITECH_LED_COPY_OUT=TRUE
+
+build: false
+
+test_script:
+  # Build only, we can't really test without the actual hardware
+  - cargo build --verbose
+  - cargo build --verbose --example version
+  # Check if dll was copied
+  - ps: $host.SetShouldExit(-not (Test-Path $env:appveyor_build_folder\target\debug\LogitechLed.dll) -as [int32])
+
+branches:
+  only:
+    - master

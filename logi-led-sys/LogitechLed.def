@@ -1,4 +1,4 @@
-LIBRARY LogitechLcd 
+LIBRARY LogitechLed 
 EXPORTS 
 LogiLedFlashLighting 
 LogiLedFlashSingleKey 
