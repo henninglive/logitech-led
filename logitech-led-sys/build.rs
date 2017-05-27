@@ -169,10 +169,10 @@ fn main() {
         }
 
         // Start with build out folder
-        // Example: logi-led\target\debug\build\logi-led-sys-cb228bca7013f026\out
+        // Example: logitech-led\target\debug\build\logitech-led-sys-cb228bca7013f026\out
         let mut target_path = PathBuf::from(&out_dir_str);
 
-        // Pop down to our traget dir: logi-led\target\debug
+        // Pop down to our traget dir: logitech-led\target\debug
         assert!(target_path.pop());
         assert!(target_path.pop());
         assert!(target_path.pop());

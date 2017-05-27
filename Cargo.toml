@@ -1,10 +1,10 @@
 [package]
-name = "logi-led"
+name = "logitech-led"
 version = "0.1.0"
 authors = ["Henning Ottesen <henning@live.no>"]
 
 [target.'cfg(windows)'.dependencies]
-logi-led-sys = {path = "logi-led-sys"}
+logitech-led-sys = {path = "logitech-led-sys"}
 widestring = "0.2.2"
 
 [dependencies]

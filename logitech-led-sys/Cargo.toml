@@ -1,5 +1,5 @@
 [package]
-name = "logi-led-sys"
+name = "logitech-led-sys"
 version = "0.1.0"
 authors = ["Henning Ottesen <henning@live.no>"]
 description = "Rust FFI bindings for the Logitech LED SDK."

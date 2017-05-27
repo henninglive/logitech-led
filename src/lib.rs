@@ -1,6 +1,6 @@
-extern crate logi_led_sys;
+extern crate logitech_led_sys;
 
-use logi_led_sys::*;
+use logitech_led_sys::*;
 use std::os::raw::c_int;
 
 #[derive(Debug)]

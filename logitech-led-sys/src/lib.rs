@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use std::os::raw::{c_int, c_uint, c_double, c_uchar};
 
 pub const LOGI_LED_BITMAP_WIDTH: usize         = 21;
