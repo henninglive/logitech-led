@@ -1,11 +1,19 @@
 [package]
 name = "logitech-led"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Henning Ottesen <henning@live.no>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/henninglive/logitech-led"
+homepage = "https://github.com/henninglive/logitech-led"
+documentation = "https://docs.rs/logitech-led/"
+description = "Rust bindings for the Logitech Gaming LED SDK."
+
+# Should be [target.'cfg(windows)'.dependencies], but that doesn't work for some reason.
+# Needs to be fixed if we want to add support for 3d party drivers on Linux or OSX.
+[dependencies]
+logitech-led-sys = {path = "logitech-led-sys", version = "1.0.0"}
 
 [target.'cfg(windows)'.dependencies]
-logitech-led-sys = {path = "logitech-led-sys"}
-widestring = "0.2.2"
-
-[dependencies]
-winapi = "0.2.8"
+widestring = "0.2"
+winapi = "0.2"
