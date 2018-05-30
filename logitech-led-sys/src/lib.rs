@@ -13,18 +13,18 @@ extern crate bitflags;
 
 use std::os::raw::{c_int, c_uint, c_double, c_uchar};
 
-pub const LOGI_LED_BITMAP_WIDTH: usize         = 21;
-pub const LOGI_LED_BITMAP_HEIGHT: usize        = 6;
-pub const LOGI_LED_BITMAP_BYTES_PER_KEY: usize = 4;
-pub const LOGI_LED_BITMAP_SIZE: usize = LOGI_LED_BITMAP_WIDTH * LOGI_LED_BITMAP_HEIGHT * LOGI_LED_BITMAP_BYTES_PER_KEY;
+pub const BITMAP_WIDTH: usize         = 21;
+pub const BITMAP_HEIGHT: usize        = 6;
+pub const BITMAP_BYTES_PER_KEY: usize = 4;
+pub const BITMAP_SIZE: usize = BITMAP_WIDTH * BITMAP_HEIGHT * BITMAP_BYTES_PER_KEY;
 
-pub const LOGI_LED_DURATION_INFINITE: c_int = 0;
+pub const DURATION_INFINITE: c_int = 0;
 
 bitflags! {
     /// Targeted device type.
     ///
     /// This library allows you to target different device types.
-    pub struct LogiDeviceType: c_uint {
+    pub struct DeviceType: c_uint {
         const MONOCHROME =  0x1;
         const RGB = 0x2;
         const PERKEY_RGB = 0x4;
@@ -34,7 +34,7 @@ bitflags! {
 
 #[repr(C)]
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum LogiLed {
+pub enum Key {
     ESC                = 0x01,
     F1                 = 0x3b,
     F2                 = 0x3c,
@@ -153,7 +153,7 @@ pub enum LogiLed {
 }
 
 #[derive(Debug)]
-pub struct LogitechLed {
+pub struct Library {
     pub LogiLedInit: unsafe extern "C" fn() -> bool,
 
     pub LogiGetConfigOptionNumber: unsafe extern "C" fn(configPath: *const u16, defaultValue: *mut c_double) -> bool,
@@ -174,46 +174,48 @@ pub struct LogitechLed {
         milliSecondsDuration: c_int, milliSecondsInterval: c_int) -> bool,
     pub LogiLedStopEffects: unsafe extern "C" fn() -> bool,
 
-    // Per-key functions => only apply to LogiDeviceType::RGB devices.
-    pub LogiLedSetLightingFromBitmap: unsafe extern "C" fn(bitmap: *const c_uchar) -> bool,
+    // Per-key functions => only apply to LogiDeviceType::PERKEY_RGB devices.
+    pub LogiLedSetLightingFromBitmap: unsafe extern "C" fn(bitmap: *const u8) -> bool,
     pub LogiLedSetLightingForKeyWithScanCode: unsafe extern "C" fn(keyCode: c_int, redPercentage: c_int,
         greenPercentage: c_int, bluePercentage: c_int) -> bool,
     pub LogiLedSetLightingForKeyWithHidCode: unsafe extern "C" fn(keyCode: c_int, redPercentage: c_int,
         greenPercentage: c_int, bluePercentage: c_int) -> bool,
     pub LogiLedSetLightingForKeyWithQuartzCode: unsafe extern "C" fn(keyCode: c_int, redPercentage: c_int,
         greenPercentage: c_int, bluePercentage: c_int) -> bool,
-    pub LogiLedSetLightingForKeyWithKeyName: unsafe extern "C" fn(keyName: LogiLed, redPercentage: c_int,
+    pub LogiLedSetLightingForKeyWithKeyName: unsafe extern "C" fn(keyName: Key, redPercentage: c_int,
         greenPercentage: c_int, bluePercentage: c_int) -> bool,
-    pub LogiLedSaveLightingForKey: unsafe extern "C" fn(keyName: LogiLed) -> bool,
-    pub LogiLedRestoreLightingForKey: unsafe extern "C" fn(keyName: LogiLed) -> bool,
-    pub LogiLedExcludeKeysFromBitmap: unsafe extern "C" fn(keyList: *mut LogiLed, listCount: c_int) -> bool,
+    pub LogiLedSaveLightingForKey: unsafe extern "C" fn(keyName: Key) -> bool,
+    pub LogiLedRestoreLightingForKey: unsafe extern "C" fn(keyName: Key) -> bool,
+    pub LogiLedExcludeKeysFromBitmap: unsafe extern "C" fn(keyList: *mut Key, listCount: c_int) -> bool,
 
     // Per-key effects => only apply to LogiDeviceType::PERKEY_RGB devices.
-    pub LogiLedFlashSingleKey: unsafe extern "C" fn(keyName: LogiLed, redPercentage: c_int, greenPercentage: c_int,
+    pub LogiLedFlashSingleKey: unsafe extern "C" fn(keyName: Key, redPercentage: c_int, greenPercentage: c_int,
         bluePercentage: c_int, msDuration: c_int, msInterval: c_int) -> bool,
-    pub LogiLedPulseSingleKey: unsafe extern "C" fn(keyName: LogiLed, startRedPercentage: c_int, startGreenPercentage: c_int,
+    pub LogiLedPulseSingleKey: unsafe extern "C" fn(keyName: Key, startRedPercentage: c_int, startGreenPercentage: c_int,
         startBluePercentage: c_int, finishRedPercentage: c_int, finishGreenPercentage: c_int, 
         finishBluePercentage: c_int, msDuration: c_int, isInfinite: c_int) -> bool,
-    pub LogiLedStopEffectsOnKey: unsafe extern "C" fn(keyName: LogiLed) -> bool,
+    pub LogiLedStopEffectsOnKey: unsafe extern "C" fn(keyName: Key) -> bool,
 
     pub LogiLedShutdown: unsafe extern "C" fn(),
 
     /// Library handle, will be freed on drop
-    _library: platform::Library,
+    _handle: platform::Handle,
 }
 
 #[cfg(not(target_os = "windows"))]
 mod platform {
-    use super::LogitechLed;
-    use std::io::Error;
+    use super::Library;
+    use std::io::{Error, ErrorKind};
 
-    pub struct Library;
+    pub struct Handle(*const ());
 
-    impl LogitechLed {
-        pub fn load() -> Result<LogitechLed, Error> {
-            unimplemented!();
+    impl Library {
+        pub fn load() -> Result<Library, Error> {
+            Err(Error::new(ErrorKind::Other, "Unsupported system"))
         }
     }
+
+    unsafe impl Send for Handle {}
 }
 
 #[cfg(target_os = "windows")]
@@ -222,7 +224,7 @@ mod platform {
     extern crate kernel32;
     extern crate winreg;
 
-    use super::LogitechLed;
+    use super::Library;
 
     use self::winreg::RegKey;
     use self::winreg::enums::{HKEY_LOCAL_MACHINE, HKEY_CLASSES_ROOT, KEY_READ};
@@ -233,7 +235,7 @@ mod platform {
     use std::io::Error;
     use std::fmt;
 
-    pub struct Library(HMODULE);
+    pub struct Handle(HMODULE);
 
     const ERROR_MOD_NOT_FOUND: i32 = winapi::winerror::ERROR_MOD_NOT_FOUND as i32;
 
@@ -325,9 +327,9 @@ mod platform {
         }
     }
 
-    impl LogitechLed {
+    impl Library {
         /// Try to locate and load 'LogitechLed.dll'.
-        pub fn load() -> Result<LogitechLed, Error> {
+        pub fn load() -> Result<Library, Error> {
             use std::mem;
 
             unsafe {
@@ -370,7 +372,7 @@ mod platform {
                     }
                 }
 
-                Ok(LogitechLed {
+                Ok(Library {
                     LogiLedInit:                            mem::transmute(symbols[0].1),
                     LogiGetConfigOptionNumber:              mem::transmute(symbols[1].1),
                     LogiGetConfigOptionBool:                mem::transmute(symbols[2].1),
@@ -396,19 +398,19 @@ mod platform {
                     LogiLedPulseSingleKey:                  mem::transmute(symbols[22].1),
                     LogiLedStopEffectsOnKey:                mem::transmute(symbols[23].1),
                     LogiLedShutdown:                        mem::transmute(symbols[24].1),
-                    _library: Library(handle),
+                    _handle: Handle(handle),
                 })
             }
         }
     }
 
-    impl fmt::Debug for Library {
+    impl fmt::Debug for Handle {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             fmt::Pointer::fmt(&self.0, f)
         }
     }
 
-    impl Drop for Library {
+    impl Drop for Handle {
         fn drop(&mut self) {
             unsafe {
                 kernel32::FreeLibrary(self.0);
@@ -416,6 +418,5 @@ mod platform {
         }
     }
 
-    unsafe impl Send for Library {}
-    unsafe impl Sync for Library {}
+    unsafe impl Send for Handle {}
 }

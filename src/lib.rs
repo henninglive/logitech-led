@@ -4,18 +4,16 @@
 
 extern crate logitech_led_sys as sys;
 
-pub use sys::{LogiLed, LogiDeviceType,
-    LOGI_LED_BITMAP_WIDTH,
-    LOGI_LED_BITMAP_HEIGHT,
-    LOGI_LED_BITMAP_BYTES_PER_KEY,
-    LOGI_LED_BITMAP_SIZE,
-    LOGI_LED_DURATION_INFINITE,
+pub use sys::{
+    Key, DeviceType,
+    BITMAP_WIDTH, BITMAP_HEIGHT,
+    BITMAP_BYTES_PER_KEY, BITMAP_SIZE,
 };
 
 use std::sync::atomic::{AtomicBool, Ordering, ATOMIC_BOOL_INIT};
+use std::time::Duration;
 use std::os::raw::c_int;
-use sys::LogitechLed;
-
+use sys::{Library, DURATION_INFINITE};
 
 static INITIALIZED: AtomicBool = ATOMIC_BOOL_INIT;
 
@@ -54,19 +52,12 @@ pub enum Error {
     Utf16(std::string::FromUtf16Error),
 }
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SdkVersion {
-    pub major_num: usize,
-    pub minor_num: usize,
-    pub build_num: usize,
-}
-
+#[derive(Debug, Clone, Copy, Hash, PartialOrd, Ord, PartialEq, Eq, Default)]
 pub struct RGBP(pub u8, pub u8, pub u8);
 
 #[derive(Debug)]
 pub struct Led {
-    lib: LogitechLed,
-    led_type: LogiDeviceType,
+    lib: Library,
 }
 
 fn str_to_wchar(s: &str) -> Result<Vec<u16>, Error> {
@@ -76,6 +67,15 @@ fn str_to_wchar(s: &str) -> Result<Vec<u16>, Error> {
     }
     v.push(0);
     Ok(v)
+}
+
+fn duration_to_c_int(d: Duration) -> c_int {
+    let n = d.as_secs().checked_mul(1000)
+        .and_then(|n| n.checked_add(d.subsec_nanos() as u64 / 1000))
+        .expect("Duration to c_int overflow");
+
+    assert!(n <= <c_int>::max_value() as u64, "Duration to c_int overflow");
+    n as c_int
 }
 
 impl RGBP {
@@ -94,11 +94,7 @@ impl RGBP {
 
 impl Led {
     pub fn init() -> Result<Led, Error> {
-        Self::init_type(LogiDeviceType::ALL)
-    }
-
-    pub fn init_type(led_type: LogiDeviceType) -> Result<Led, Error> {
-        let lib = LogitechLed::load().map_err(|e| Error::LoadLibrary(e))?;
+        let lib = Library::load().map_err(|e| Error::LoadLibrary(e))?;
         
         assert_eq!(INITIALIZED.swap(true, Ordering::SeqCst), false);
         unsafe {
@@ -108,45 +104,19 @@ impl Led {
             }
         }
 
-        let mut led = Led {
+        Ok(Led {
             lib: lib,
-            led_type: LogiDeviceType::ALL,
-        };
-
-        led.set_type(led_type)?;
-
-        Ok(led)
+        })
     }
 
-    pub fn set_type(&mut self, led_type: LogiDeviceType) -> Result<(), Error> {
+    pub fn set_type(&mut self, device_type: DeviceType) -> Result<(), Error> {
         unsafe {
-            if !(self.lib.LogiLedSetTargetDevice)(led_type.bits()) {
+            if !(self.lib.LogiLedSetTargetDevice)(device_type.bits()) {
                 return Err(Error::SetTargetDevice);
             }
         }
-        self.led_type = led_type;
         Ok(())
     }
-
-    /*
-    pub fn sdk_version(&self) -> Result<SdkVersion, Error> {
-        let mut major_num:c_int = 0;
-        let mut minor_num:c_int = 0;
-        let mut build_num:c_int = 0;
-        unsafe {
-            match (self.lib.LogiLedGetSdkVersion)(
-                &mut major_num as *mut c_int, &mut minor_num as *mut c_int, &mut build_num as *mut c_int)
-            {
-                false => Err(Error::GetSdkVersion),
-                true  => Ok(SdkVersion {
-                    major_num: major_num as usize,
-                    minor_num: minor_num as usize,
-                    build_num: build_num as usize,
-                }),
-            }
-        }
-    }
-    */
 
     pub fn config_option_num(&mut self, config_path: &str, default: f64) -> Result<f64, Error> {
         let ws = str_to_wchar(config_path)?;
@@ -172,9 +142,10 @@ impl Led {
 
     pub fn config_option_color(&mut self, config_path: &str, default: RGBP) -> Result<RGBP, Error> {
        let ws = str_to_wchar(config_path)?;
-       let mut red = default.0 as c_int;
-       let mut green = default.1 as c_int;
-       let mut blue = default.2 as c_int;
+       let c = default.clamp();
+       let mut red = c.0 as c_int;
+       let mut green = c.1 as c_int;
+       let mut blue = c.2 as c_int;
        unsafe {
             match (self.lib.LogiGetConfigOptionColor)(ws.as_ptr(),
                 (&mut red) as *mut _, (&mut green) as *mut _, (&mut blue) as *mut _)
@@ -214,6 +185,67 @@ impl Led {
             }
         }
     }
+
+    pub fn set_lighting(&mut self, color: RGBP) -> Result<(), Error> {
+        let c = color.clamp();
+        unsafe {
+            match (self.lib.LogiLedSetLighting)(c.0 as c_int, c.1 as c_int, c.2 as c_int) {
+                false => Err(Error::SetLighting),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn save_lighting(&mut self) -> Result<(), Error> {
+        unsafe {
+            match (self.lib.LogiLedSaveCurrentLighting)() {
+                false => Err(Error::SaveCurrentLighting),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn restore_lighting(&mut self) -> Result<(), Error> {
+        unsafe {
+            match (self.lib.LogiLedRestoreLighting)() {
+                false => Err(Error::RestoreLighting),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn flash_lighting(&mut self, color: RGBP, duration: Option<Duration>, interval: Duration) -> Result<(), Error> {
+       let c = color.clamp();
+       let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
+       let i = duration_to_c_int(interval);
+       unsafe {
+            match (self.lib.LogiLedFlashLighting)(c.0 as c_int, c.1 as c_int, c.2 as c_int, d, i) {
+                false => Err(Error::FlashLighting),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn pulse_lighting(&mut self, color: RGBP, duration: Option<Duration>, interval: Duration) -> Result<(), Error> {
+       let c = color.clamp();
+       let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
+       let i = duration_to_c_int(interval);
+       unsafe {
+            match (self.lib.LogiLedPulseLighting)(c.0 as c_int, c.1 as c_int, c.2 as c_int, d, i) {
+                false => Err(Error::PulseLighting),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn stop_effects(&mut self) -> Result<(), Error> {
+        unsafe {
+            match (self.lib.LogiLedStopEffects)() {
+                false => Err(Error::StopEffects),
+                true => Ok(()),
+            }
+        }
+    }
 }
 
 impl Drop for Led {
@@ -225,3 +257,7 @@ impl Drop for Led {
         INITIALIZED.store(false, Ordering::SeqCst);
     }
 }
+
+//TODO: use color crate
+//TODO: add is_supported
+//TODO: build script unix
