@@ -246,6 +246,99 @@ impl Led {
             }
         }
     }
+
+    pub fn set_lighting_from_bitmap(&mut self, bitmap: &[u8]) -> Result<(), Error> {
+        assert_eq!(bitmap.len(), BITMAP_SIZE);
+        unsafe {
+            match (self.lib.LogiLedSetLightingFromBitmap)(bitmap.as_ptr()) {
+                false => Err(Error::SetLightingFromBitmap),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn set_lighting_for_key(&mut self, key: Key, color: RGBP) -> Result<(), Error> {
+       let c = color.clamp();
+       unsafe {
+            match (self.lib.LogiLedSetLightingForKeyWithKeyName)(key, c.0 as c_int, c.1 as c_int, c.2 as c_int) {
+                false => Err(Error::SetLightingForKeyWithKeyName),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn save_lighting_for_key(&mut self, key: Key) -> Result<(), Error> {
+       unsafe {
+            match (self.lib.LogiLedSaveLightingForKey)(key) {
+                false => Err(Error::SaveLightingForKey),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn restore_lighting_for_key(&mut self, key: Key) -> Result<(), Error> {
+       unsafe {
+            match (self.lib.LogiLedRestoreLightingForKey)(key) {
+                false => Err(Error::RestoreLightingForKey),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn exclude_keys_from_bitmap(&mut self, keys: &[Key]) -> Result<(), Error> {
+       unsafe {
+            match (self.lib.LogiLedExcludeKeysFromBitmap)(keys.as_ptr(), keys.len() as c_int) {
+                false => Err(Error::ExcludeKeysFromBitmap),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn flash_single_key(&mut self, key: Key, color: RGBP, duration: Option<Duration>, interval: Duration)
+        -> Result<(), Error>
+    {
+        let c = color.clamp();
+        let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
+        let i = duration_to_c_int(interval);
+        unsafe {
+            match (self.lib.LogiLedFlashSingleKey)(key, c.0 as c_int, c.1 as c_int, c.2 as c_int, d, i) {
+                false => Err(Error::FlashSingleKey),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn pulse_single_key(&mut self, key: Key, start: RGBP, finish: RGBP,
+        duration: Option<Duration>, infinite: bool) -> Result<(), Error>
+    {
+        let s = start.clamp();
+        let f = finish.clamp();
+        let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
+        unsafe {
+            match (self.lib.LogiLedPulseSingleKey)(
+                    key,
+                    s.0 as c_int, s.1 as c_int, s.2 as c_int,
+                    f.0 as c_int, f.1 as c_int, f.2 as c_int,
+                    d,
+                    infinite as c_int,
+                )
+            {
+                false => Err(Error::PulseSingleKey),
+                true => Ok(()),
+            }
+        }
+    }
+
+    pub fn stop_effects_on_key(&mut self, key: Key)
+        -> Result<(), Error>
+    {
+       unsafe {
+            match (self.lib.LogiLedStopEffectsOnKey)(key) {
+                false => Err(Error::StopEffectsOnKey),
+                true => Ok(()),
+            }
+        }
+    }
 }
 
 impl Drop for Led {

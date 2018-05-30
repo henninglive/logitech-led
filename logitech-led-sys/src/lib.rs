@@ -11,7 +11,7 @@
 #[macro_use]
 extern crate bitflags;
 
-use std::os::raw::{c_int, c_uint, c_double, c_uchar};
+use std::os::raw::{c_int, c_uint, c_double};
 
 pub const BITMAP_WIDTH: usize         = 21;
 pub const BITMAP_HEIGHT: usize        = 6;
@@ -186,7 +186,7 @@ pub struct Library {
         greenPercentage: c_int, bluePercentage: c_int) -> bool,
     pub LogiLedSaveLightingForKey: unsafe extern "C" fn(keyName: Key) -> bool,
     pub LogiLedRestoreLightingForKey: unsafe extern "C" fn(keyName: Key) -> bool,
-    pub LogiLedExcludeKeysFromBitmap: unsafe extern "C" fn(keyList: *mut Key, listCount: c_int) -> bool,
+    pub LogiLedExcludeKeysFromBitmap: unsafe extern "C" fn(keyList: *const Key, listCount: c_int) -> bool,
 
     // Per-key effects => only apply to LogiDeviceType::PERKEY_RGB devices.
     pub LogiLedFlashSingleKey: unsafe extern "C" fn(keyName: Key, redPercentage: c_int, greenPercentage: c_int,
