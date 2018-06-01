@@ -32,12 +32,10 @@ fn main() {
     driver.restore_lighting().unwrap();
     sleep(Duration::from_millis(1000));
 
-    driver.flash_lighting(green, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
+    driver.flash_lighting(blue, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
     sleep(Duration::from_millis(3000));
 
-    // This is broken for some reason.
-    /*
-    driver.pulse_lighting(blue, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
+    // Dosen't do anything
+    driver.pulse_lighting(green, Some(Duration::from_millis(2000)), Duration::from_millis(1000)).unwrap();
     sleep(Duration::from_millis(3000));
-    */
 }

@@ -72,7 +72,7 @@ fn str_to_wchar(s: &str) -> Result<Vec<u16>, Error> {
 
 fn duration_to_c_int(d: Duration) -> c_int {
     let n = d.as_secs().checked_mul(1000)
-        .and_then(|n| n.checked_add(d.subsec_nanos() as u64 / 1000))
+        .and_then(|n| n.checked_add(d.subsec_nanos() as u64 / 1_000_000))
         .expect("Duration to c_int overflow");
 
     assert!(n <= <c_int>::max_value() as u64, "Duration to c_int overflow");
@@ -293,11 +293,11 @@ impl Driver {
     }
 
     pub fn pulse_single_key(&mut self, key: Key, start: Color, finish: Color,
-        duration: Option<Duration>, infinite: bool) -> Result<(), Error>
+        duration: Duration, infinite: bool) -> Result<(), Error>
     {
         let s = color::to_precent(start);
         let f = color::to_precent(finish);
-        let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
+        let d = duration_to_c_int(duration);
         unsafe {
             match (self.lib.LogiLedPulseSingleKey)(
                     key,
