@@ -11,33 +11,33 @@ use std::time::Duration;
 use std::thread::sleep;
 
 fn main() {
-    let mut led = led::Led::init().unwrap();
-    let red = led::RGBP(100, 0, 0);
-    let green = led::RGBP(0, 100, 0);
-    let blue = led::RGBP(0, 0, 100);
+    let mut driver = led::Driver::init().unwrap();
+    let red = led::Color::new(1.0, 0.0, 0.0);
+    let green = led::Color::new(0.0, 1.0, 0.0);
+    let blue = led::Color::new(0.0, 0.0, 1.0);
 
     sleep(Duration::from_millis(1000));
-    led.set_lighting(red).unwrap();
+    driver.set_lighting(red).unwrap();
 
     sleep(Duration::from_millis(1000));
-    led.save_lighting().unwrap();
+    driver.save_lighting().unwrap();
     sleep(Duration::from_millis(1000));
 
-    led.set_lighting(green).unwrap();
+    driver.set_lighting(green).unwrap();
     sleep(Duration::from_millis(1000));
 
-    led.set_lighting(blue).unwrap();
+    driver.set_lighting(blue).unwrap();
     sleep(Duration::from_millis(1000));
 
-    led.restore_lighting().unwrap();
+    driver.restore_lighting().unwrap();
     sleep(Duration::from_millis(1000));
 
-    led.flash_lighting(green, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
+    driver.flash_lighting(green, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
     sleep(Duration::from_millis(3000));
 
     // This is broken for some reason.
     /*
-    led.pulse_lighting(blue, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
+    driver.pulse_lighting(blue, Some(Duration::from_millis(2000)), Duration::from_millis(500)).unwrap();
     sleep(Duration::from_millis(3000));
     */
 }

@@ -57,7 +57,7 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct Led {
+pub struct Driver {
     lib: Library,
 }
 
@@ -79,8 +79,8 @@ fn duration_to_c_int(d: Duration) -> c_int {
     n as c_int
 }
 
-impl Led {
-    pub fn init() -> Result<Led, Error> {
+impl Driver {
+    pub fn init() -> Result<Driver, Error> {
         let lib = Library::load().map_err(|e| Error::LoadLibrary(e))?;
         
         assert_eq!(INITIALIZED.swap(true, Ordering::SeqCst), false);
@@ -91,7 +91,7 @@ impl Led {
             }
         }
 
-        Ok(Led {
+        Ok(Driver {
             lib: lib,
         })
     }
@@ -325,7 +325,7 @@ impl Led {
     }
 }
 
-impl Drop for Led {
+impl Drop for Driver {
     /// Kills the applet and frees memory used by the SDK
     fn drop(&mut self) {
         unsafe {

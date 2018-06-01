@@ -12,14 +12,14 @@
 extern crate logitech_led as led;
 
 fn main() {
-    let mut led = led::Led::init().unwrap();
-    let red = led::RGBP(100, 0, 0);
+    let mut driver = led::Driver::init().unwrap();
+    let red = led::Color::new(1.0, 0.0, 0.0);
 
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    println!("{:?}", led.config_option_bool("logitech-led/bool", true).unwrap());
-    println!("{:?}", led.config_option_num("logitech-led/num", 1.0).unwrap());
-    println!("{:?}", led.config_option_color("logitech-led/color", red).unwrap());
+    println!("{:?}", driver.config_option_bool("logitech-led/bool", true).unwrap());
+    println!("{:?}", driver.config_option_num("logitech-led/num", 1.0).unwrap());
+    println!("{:?}", driver.config_option_color("logitech-led/color", red).unwrap());
 
     std::thread::sleep(std::time::Duration::from_secs(10));
 }
