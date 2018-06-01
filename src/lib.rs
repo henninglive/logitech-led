@@ -4,6 +4,10 @@
 
 extern crate logitech_led_sys as sys;
 
+mod color;
+
+pub use color::{Color, BGRA};
+
 pub use sys::{
     Key, DeviceType,
     BITMAP_WIDTH, BITMAP_HEIGHT,
@@ -52,9 +56,6 @@ pub enum Error {
     Utf16(std::string::FromUtf16Error),
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialOrd, Ord, PartialEq, Eq, Default)]
-pub struct RGBP(pub u8, pub u8, pub u8);
-
 #[derive(Debug)]
 pub struct Led {
     lib: Library,
@@ -76,20 +77,6 @@ fn duration_to_c_int(d: Duration) -> c_int {
 
     assert!(n <= <c_int>::max_value() as u64, "Duration to c_int overflow");
     n as c_int
-}
-
-impl RGBP {
-    pub fn clamp(self) -> RGBP {
-        RGBP(
-            if self.0 > 100 { 100 } else { self.0 },
-            if self.1 > 100 { 100 } else { self.1 },
-            if self.2 > 100 { 100 } else { self.2 },
-        )
-    }
-
-    pub fn red(&self) -> u8 { self.0 }
-    pub fn green(&self) -> u8 { self.1 }
-    pub fn blue(&self) -> u8 { self.2 }
 }
 
 impl Led {
@@ -140,18 +127,15 @@ impl Led {
         }
     }
 
-    pub fn config_option_color(&mut self, config_path: &str, default: RGBP) -> Result<RGBP, Error> {
+    pub fn config_option_color(&mut self, config_path: &str, default: Color) -> Result<Color, Error> {
        let ws = str_to_wchar(config_path)?;
-       let c = default.clamp();
-       let mut red = c.0 as c_int;
-       let mut green = c.1 as c_int;
-       let mut blue = c.2 as c_int;
+       let mut c = color::to_precent(default);
        unsafe {
             match (self.lib.LogiGetConfigOptionColor)(ws.as_ptr(),
-                (&mut red) as *mut _, (&mut green) as *mut _, (&mut blue) as *mut _)
+                (&mut c.0) as *mut _, (&mut c.1) as *mut _, (&mut c.2) as *mut _)
             {
                 false => Err(Error::GetConfigOptionColor),
-                true  => Ok(RGBP(red as u8, green as u8, blue as u8).clamp()),
+                true  => Ok(color::from_precent(c)),
             }
         }
     }
@@ -186,10 +170,10 @@ impl Led {
         }
     }
 
-    pub fn set_lighting(&mut self, color: RGBP) -> Result<(), Error> {
-        let c = color.clamp();
+    pub fn set_lighting(&mut self, color: Color) -> Result<(), Error> {
+        let c = color::to_precent(color);
         unsafe {
-            match (self.lib.LogiLedSetLighting)(c.0 as c_int, c.1 as c_int, c.2 as c_int) {
+            match (self.lib.LogiLedSetLighting)(c.0, c.1, c.2) {
                 false => Err(Error::SetLighting),
                 true => Ok(()),
             }
@@ -214,24 +198,24 @@ impl Led {
         }
     }
 
-    pub fn flash_lighting(&mut self, color: RGBP, duration: Option<Duration>, interval: Duration) -> Result<(), Error> {
-       let c = color.clamp();
+    pub fn flash_lighting(&mut self, color: Color, duration: Option<Duration>, interval: Duration) -> Result<(), Error> {
+       let c = color::to_precent(color);
        let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
        let i = duration_to_c_int(interval);
        unsafe {
-            match (self.lib.LogiLedFlashLighting)(c.0 as c_int, c.1 as c_int, c.2 as c_int, d, i) {
+            match (self.lib.LogiLedFlashLighting)(c.0, c.1, c.2, d, i) {
                 false => Err(Error::FlashLighting),
                 true => Ok(()),
             }
         }
     }
 
-    pub fn pulse_lighting(&mut self, color: RGBP, duration: Option<Duration>, interval: Duration) -> Result<(), Error> {
-       let c = color.clamp();
+    pub fn pulse_lighting(&mut self, color: Color, duration: Option<Duration>, interval: Duration) -> Result<(), Error> {
+       let c = color::to_precent(color);
        let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
        let i = duration_to_c_int(interval);
        unsafe {
-            match (self.lib.LogiLedPulseLighting)(c.0 as c_int, c.1 as c_int, c.2 as c_int, d, i) {
+            match (self.lib.LogiLedPulseLighting)(c.0, c.1, c.2, d, i) {
                 false => Err(Error::PulseLighting),
                 true => Ok(()),
             }
@@ -257,10 +241,10 @@ impl Led {
         }
     }
 
-    pub fn set_lighting_for_key(&mut self, key: Key, color: RGBP) -> Result<(), Error> {
-       let c = color.clamp();
-       unsafe {
-            match (self.lib.LogiLedSetLightingForKeyWithKeyName)(key, c.0 as c_int, c.1 as c_int, c.2 as c_int) {
+    pub fn set_lighting_for_key(&mut self, key: Key, color: Color) -> Result<(), Error> {
+        let c = color::to_precent(color);
+        unsafe {
+            match (self.lib.LogiLedSetLightingForKeyWithKeyName)(key, c.0, c.1, c.2) {
                 false => Err(Error::SetLightingForKeyWithKeyName),
                 true => Ok(()),
             }
@@ -294,31 +278,31 @@ impl Led {
         }
     }
 
-    pub fn flash_single_key(&mut self, key: Key, color: RGBP, duration: Option<Duration>, interval: Duration)
+    pub fn flash_single_key(&mut self, key: Key, color: Color, duration: Option<Duration>, interval: Duration)
         -> Result<(), Error>
     {
-        let c = color.clamp();
+        let c = color::to_precent(color);
         let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
         let i = duration_to_c_int(interval);
         unsafe {
-            match (self.lib.LogiLedFlashSingleKey)(key, c.0 as c_int, c.1 as c_int, c.2 as c_int, d, i) {
+            match (self.lib.LogiLedFlashSingleKey)(key, c.0, c.1, c.2, d, i) {
                 false => Err(Error::FlashSingleKey),
                 true => Ok(()),
             }
         }
     }
 
-    pub fn pulse_single_key(&mut self, key: Key, start: RGBP, finish: RGBP,
+    pub fn pulse_single_key(&mut self, key: Key, start: Color, finish: Color,
         duration: Option<Duration>, infinite: bool) -> Result<(), Error>
     {
-        let s = start.clamp();
-        let f = finish.clamp();
+        let s = color::to_precent(start);
+        let f = color::to_precent(finish);
         let d = duration.map(|d| duration_to_c_int(d)).unwrap_or(DURATION_INFINITE);
         unsafe {
             match (self.lib.LogiLedPulseSingleKey)(
                     key,
-                    s.0 as c_int, s.1 as c_int, s.2 as c_int,
-                    f.0 as c_int, f.1 as c_int, f.2 as c_int,
+                    s.0, s.1, s.2,
+                    f.0, f.1, f.2,
                     d,
                     infinite as c_int,
                 )
@@ -351,6 +335,6 @@ impl Drop for Led {
     }
 }
 
-//TODO: use color crate
 //TODO: add is_supported
 //TODO: build script unix
+//TODO: docs
